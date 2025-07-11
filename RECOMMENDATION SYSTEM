@@ -1,0 +1,44 @@
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+
+data = {
+    'user_id': [1, 1, 1,   2, 2,     3, 3,     4,     5, 5,     6, 6],
+    'movie': [
+        '3 Idiots', 'Dangal', 'PK',          
+        '3 Idiots', 'Lagaan',                
+        'PK', 'Swades',                      
+        'Lagaan',                            
+        'Swades', 'Chak De India',          
+        'Dangal', 'Chak De India'            
+    ],
+    'rating': [5, 4, 5, 5, 3, 4, 5, 4, 4, 5, 3, 5]
+}
+
+df = pd.DataFrame(data)
+
+user_movie_matrix = df.pivot_table(index='user_id', columns='movie', values='rating')
+user_movie_matrix.fillna(0, inplace=True)
+
+user_similarity = cosine_similarity(user_movie_matrix)
+user_similarity_df = pd.DataFrame(user_similarity, index=user_movie_matrix.index, columns=user_movie_matrix.index)
+
+def recommend_movies(user_id, num_recommendations=3):
+    similar_users = user_similarity_df[user_id].sort_values(ascending=False)[1:]
+    weighted_ratings = pd.Series(dtype='float64')
+
+    for similar_user, similarity_score in similar_users.items():
+        unrated_movies = user_movie_matrix.loc[user_id][user_movie_matrix.loc[user_id] == 0].index
+        for movie in unrated_movies:
+            if user_movie_matrix.loc[similar_user, movie] > 0:
+                if movie not in weighted_ratings:
+                    weighted_ratings[movie] = 0
+                weighted_ratings[movie] += similarity_score * user_movie_matrix.loc[similar_user, movie]
+
+    recommendations = weighted_ratings.sort_values(ascending=False).head(num_recommendations)
+    return recommendations.index.tolist()
+
+print("\n🎬 Recommended Bollywood movies for User 1:")
+print(recommend_movies(1))
+
+print("\n🎬 Recommended Bollywood movies for User 2:")
+print(recommend_movies(2))
